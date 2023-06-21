@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Здесь вы можете скачать контент в Local Storage</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <style>
+    </style>
+  </head>
+  <body>
+    <div class="container mt-3">
+      <h1>Введите ключевое слово</h1>
+      <div class="input-group mb-3">
+        <input type="text" class="form-control" placeholder="Enter keyword" id="keywordInput">
+        <button class="btn btn-primary" id="searchButton">Search</button>
+      </div>
+      <h2>Нажимая на ссылку вы скачиваете файл</h2>
+      <ul class="list-group mb-3" id="urlList"></ul>
+      <div class="progress mb-3" style="display: none;" id="progressBar">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" id="progressBarInner"></div>
+      </div>
+    </div>
+
+    <script>
+      const searchButton = document.getElementById('searchButton');
+      const keywordInput = document.getElementById('keywordInput');
+      const urlList = document.getElementById('urlList');
+      const progressBar = document.getElementById('progressBar');
+      const progressBarInner = document.getElementById('progressBarInner');
+
+      searchButton.addEventListener('click', async () => {
+        const keyword = keywordInput.value;
+        if (!keyword) return;
+        const urls = await getUrls(keyword);
+        if (urls) {
+          displayUrls(urls);
+        }
+      });
+
+      async function getUrls(keyword) {
+        try {
+          const response = await fetch(`http://127.0.0.1:5501/search/${keyword}`);
+          if (response.ok) {
+            const urls = await response.json();
+            return urls;
+          } else {
+            console.error('Ошибка:', response.status, response.statusText);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      function displayUrls(urls) {
+  urlList.innerHTML = '';
+  for (const url of urls) {
+    const li = document.createElement('li');
+    li.className = 'list-group-item';
+    li.textContent = url;
+    li.addEventListener('click', () => downloadContentWithProgress(url));
+    urlList.appendChild(li);
+  }
+}
+
+
+async function downloadContentWithProgress(url) {
+  try {
+    const response = await fetch(`http://127.0.0.1:5501/download/${encodeURIComponent(url)}`);
+    if (response.ok) {
+      progressBar.style.display = 'block';
+      progressBarInner.style.width = '0%';
+      const contentLength = response.headers.get('Content-Length');
+      const reader = response.body.getReader();
+      let bytesReceived = 0;
+      let content = '';
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        bytesReceived += value.length;
+        content += new TextDecoder("utf-8").decode(value);
+        const progress = Math.round(bytesReceived / contentLength * 100);
+        progressBarInner.style.width = `${progress}%`;
+      }
+      localStorage.setItem('content', content);
+      console.log(`Скачанный контент: ${content}`); 
+      // progressBar.style.display = 'none';
+      console.log('Загрузка завершена!');
+    } else {
+      console.error('Error:', response.status, response.statusText);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+
+
+
+
+
+    </script>
+  </body>
+</html>
